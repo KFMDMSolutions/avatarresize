@@ -20,14 +20,15 @@ use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 class main_listener implements EventSubscriberInterface
 {
 
-    public $config;
-    protected $phpbb_root_path;
-    protected $php_ext;
+	/** @var \phpbb\config\config */
+	protected $config;
+
 
     static public function getSubscribedEvents()
     {
         return array(
-            'core.avatar_driver_upload_move_file_before' => 'resize',
+            'core.avatar_driver_upload_move_file_before' => 'avater_resize',
+			'core.modify_uploaded_file'  =>'img_resize',
         );
     }
 
@@ -42,7 +43,17 @@ class main_listener implements EventSubscriberInterface
      * Resize too large avatar
      * @param array $event
      */
-    public function resize($event)
+	 
+	public function avater_resize($event)
+    {
+
+
+        $max_width = $this->config['avatar_max_width'];
+        $max_height = $this->config['avatar_max_height'];
+		
+		$this->resize($event, $max_width, $max_height);
+	}
+	public function img_resize($event)
     {
         // Decide if we need to do anything at all
         $dimension = @getimagesize($event['filedata']['filename']);
@@ -59,8 +70,28 @@ class main_listener implements EventSubscriberInterface
             return false;
         }
 
-        $max_width = $this->config['avatar_max_width'];
-        $max_height = $this->config['avatar_max_height'];
+        $max_width = $this->config['img_max_width'];
+        $max_height = $this->config['img_max_height'];
+		
+		$this->resize($event, $max_width, $max_height);
+	}	 
+	 
+    public function resize($event, $max_width, $max_height)
+    {
+		        // Decide if we need to do anything at all
+        $dimension = @getimagesize($event['filedata']['filename']);
+
+        if ($dimension === false) 
+        {
+            return false;
+        }
+
+        list($width, $height, $type) = $dimension;
+
+        if (empty($width) || empty($height)) 
+        {
+            return false;
+        }
 
         if (($width > $max_width) || ($height > $max_height)) {
             // Keep proportions
